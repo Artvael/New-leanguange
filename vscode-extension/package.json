@@ -1,0 +1,55 @@
+{
+  "name": "core-language",
+  "displayName": "Core Programming Language",
+  "description": "Dukungan resmi untuk Bahasa Pemrograman Core (.cr) dengan pewarnaan sintaks dan ikon file khusus.",
+  "version": "1.0.0",
+  "publisher": "core-lang",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Themes",
+    "Snippets"
+  ],
+  "icon": "icons/logo.png",
+  "contributes": {
+    "languages": [
+      {
+        "id": "core",
+        "aliases": [
+          "Core",
+          "core"
+        ],
+        "extensions": [
+          ".cr"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/core.svg",
+          "dark": "./icons/core.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "core",
+        "scopeName": "source.core",
+        "path": "./syntaxes/core.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "core",
+        "path": "./snippets/core.json"
+      }
+    ],
+    "iconThemes": [
+      {
+        "id": "core-icons",
+        "label": "Core File Icons",
+        "path": "./icons/icon-theme.json"
+      }
+    ]
+  }
+}

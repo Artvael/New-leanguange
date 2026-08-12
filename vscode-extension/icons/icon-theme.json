@@ -1,0 +1,30 @@
+{
+  "iconDefinitions": {
+    "_file": {
+      "iconPath": "./file.svg"
+    },
+    "_folder": {
+      "iconPath": "./folder.svg"
+    },
+    "_folder_open": {
+      "iconPath": "./folder-open.svg"
+    },
+    "_file_core": {
+      "iconPath": "./core.svg"
+    },
+    "_file_python": {
+      "iconPath": "./python.svg"
+    }
+  },
+  "file": "_file",
+  "folder": "_folder",
+  "folderExpanded": "_folder_open",
+  "fileExtensions": {
+    "cr": "_file_core",
+    "py": "_file_python"
+  },
+  "languageIds": {
+    "core": "_file_core",
+    "python": "_file_python"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "Variabel": {
+    "prefix": "var",
+    "body": ["variabel ${1:nama} = ${2:nilai}"],
+    "description": "Deklarasi variabel baru"
+  },
+  "Cetak": {
+    "prefix": "cetak",
+    "body": ["cetak \"${1:pesan}\""],
+    "description": "Mencetak teks ke layar"
+  },
+  "Jika": {
+    "prefix": "jika",
+    "body": [
+      "jika ${1:kondisi}",
+      "    ${2:cetak \"benar\"}"
+    ],
+    "description": "Percabangan kondisi jika"
+  },
+  "Jika Selainitu": {
+    "prefix": "jikaselainitu",
+    "body": [
+      "jika ${1:kondisi}",
+      "    ${2:cetak \"benar\"}",
+      "selainitu",
+      "    ${3:cetak \"salah\"}"
+    ],
+    "description": "Percabangan jika - selainitu"
+  },
+  "Selama": {
+    "prefix": "selama",
+    "body": [
+      "selama ${1:kondisi}",
+      "    ${2:cetak \"ulang\"}"
+    ],
+    "description": "Perulangan selama (while loop)"
+  },
+  "Fungsi": {
+    "prefix": "fungsi",
+    "body": [
+      "fungsi ${1:nama_fungsi} ${2:param1}",
+      "    ${3:kembalikan ${2:param1}}"
+    ],
+    "description": "Definisi fungsi baru"
+  }
+}

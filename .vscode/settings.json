@@ -1,0 +1,6 @@
+{
+  "files.associations": {
+    "*.cr": "core"
+  },
+  "workbench.iconTheme": "core-icons"
+}

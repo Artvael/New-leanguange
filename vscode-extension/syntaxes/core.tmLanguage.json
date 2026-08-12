@@ -1,0 +1,73 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Core",
+  "scopeName": "source.core",
+  "patterns": [
+    {
+      "name": "comment.line.number-sign.core",
+      "match": "#.*$"
+    },
+    {
+      "name": "string.quoted.double.core",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.core",
+          "match": "\\\\."
+        }
+      ]
+    },
+    {
+      "name": "string.quoted.single.core",
+      "begin": "'",
+      "end": "'",
+      "patterns": [
+        {
+          "name": "constant.character.escape.core",
+          "match": "\\\\."
+        }
+      ]
+    },
+    {
+      "name": "keyword.control.core",
+      "match": "\\b(jika|lainjika|selainitu|selama|kembalikan)\\b"
+    },
+    {
+      "name": "keyword.declaration.core",
+      "match": "\\b(variabel|fungsi|panggil)\\b"
+    },
+    {
+      "name": "support.function.core",
+      "match": "\\b(cetak)\\b"
+    },
+    {
+      "name": "keyword.operator.logical.core",
+      "match": "\\b(dan|atau|bukan)\\b"
+    },
+    {
+      "name": "constant.language.boolean.core",
+      "match": "\\b(benar|salah)\\b"
+    },
+    {
+      "name": "constant.language.null.core",
+      "match": "\\b(kosong)\\b"
+    },
+    {
+      "name": "constant.numeric.core",
+      "match": "\\b\\d+(\\.\\d+)?\\b"
+    },
+    {
+      "name": "keyword.operator.comparison.core",
+      "match": "(==|!=|<=|>=|<|>)"
+    },
+    {
+      "name": "keyword.operator.arithmetic.core",
+      "match": "(\\+|-|\\*|/|%|=)"
+    },
+    {
+      "name": "entity.name.function.core",
+      "match": "(?<=fungsi\\s+)[a-zA-Z_][a-zA-Z0-9_]*"
+    }
+  ]
+}
