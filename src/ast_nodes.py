@@ -67,6 +67,28 @@ class ForRangeStmt(ASTNode):
 
 
 @dataclass
+class ForInStmt(ASTNode):
+    var_name: str
+    iterable_expr: ASTNode
+    body: Block
+    line: int
+
+
+@dataclass
+class ListAppendStmt(ASTNode):
+    target_name: str
+    item_expr: ASTNode
+    line: int
+
+
+@dataclass
+class ListRemoveStmt(ASTNode):
+    target_name: str
+    index_expr: ASTNode
+    line: int
+
+
+@dataclass
 class FunctionDef(ASTNode):
     name: str
     params: List[str]
@@ -90,6 +112,12 @@ class FunctionCall(ASTNode):
 @dataclass
 class InputExpr(ASTNode):
     prompt_expr: Optional[ASTNode]
+    line: int
+
+
+@dataclass
+class ListLiteral(ASTNode):
+    elements: List[ASTNode]
     line: int
 
 

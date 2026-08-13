@@ -1,15 +1,11 @@
-"""
-Parser untuk Bahasa Pemrograman Core (.cr).
-Membangun Abstract Syntax Tree (AST) dari aliran token dengan penanganan blok indentasi tanpa simbol {}, (), ;.
-"""
-
 from typing import List, Optional, Tuple
 from .tokens import Token, TokenType, KEYWORDS
 from .error_reporter import CoreDiagnosticError, suggest_keyword
 from .ast_nodes import (
     ASTNode, Program, Block, VarDecl, AssignStmt, PrintStmt,
-    IfStmt, WhileStmt, ForRangeStmt, FunctionDef, ReturnStmt, FunctionCall,
-    BinaryOp, UnaryOp, Literal, Variable, InputExpr
+    IfStmt, WhileStmt, ForRangeStmt, ForInStmt, ListAppendStmt, ListRemoveStmt,
+    FunctionDef, ReturnStmt, FunctionCall,
+    BinaryOp, UnaryOp, Literal, Variable, InputExpr, ListLiteral
 )
 
 
@@ -128,7 +124,11 @@ class Parser:
         elif tok.type == TokenType.KEYWORD_SELAMA:
             return self._parse_while()
         elif tok.type == TokenType.KEYWORD_UNTUK:
-            return self._parse_for_range()
+            return self._parse_for()
+        elif tok.type == TokenType.KEYWORD_TAMBAH:
+            return self._parse_list_append()
+        elif tok.type == TokenType.KEYWORD_HAPUS:
+            return self._parse_list_remove()
         elif tok.type == TokenType.KEYWORD_FUNGSI:
             return self._parse_function_def()
         elif tok.type == TokenType.KEYWORD_KEMBALIKAN:
@@ -289,16 +289,52 @@ class Parser:
         body = self._parse_block()
         return WhileStmt(condition=condition, body=body, line=kw.line)
 
-    def _parse_for_range(self) -> ForRangeStmt:
+    def _parse_for(self) -> ASTNode:
         kw = self._consume(TokenType.KEYWORD_UNTUK, "Diharapkan kata kunci 'untuk'")
-        var_ident = self._consume(TokenType.IDENTIFIER, "Diharapkan nama variabel pencacah setelah 'untuk'")
-        self._consume(TokenType.KEYWORD_DARI, f"Diharapkan kata kunci 'dari' setelah variabel '{var_ident.value}'")
-        start_expr = self._parse_addition()
-        self._consume(TokenType.KEYWORD_HINGGA, "Diharapkan kata kunci 'hingga'")
-        end_expr = self._parse_addition()
-        self._consume(TokenType.NEWLINE, "Diharapkan baris baru setelah rentang 'untuk'")
-        body = self._parse_block()
-        return ForRangeStmt(var_name=var_ident.value, start_expr=start_expr, end_expr=end_expr, body=body, line=kw.line)
+        var_ident = self._consume(TokenType.IDENTIFIER, "Diharapkan nama variabel perulangan setelah 'untuk'")
+        
+        if self._match(TokenType.KEYWORD_DALAM):
+            iterable_expr = self._parse_expression()
+            self._consume(
+                TokenType.NEWLINE,
+                "Diharapkan baris baru setelah ekspresi 'dalam'",
+                cause="Setelah menentukan variabel dan daftar perulangan, harus berpindah ke baris baru.",
+                solution="Tekan Enter lalu mulai blok di bawahnya dengan 4 spasi."
+            )
+            body = self._parse_block()
+            return ForInStmt(var_name=var_ident.value, iterable_expr=iterable_expr, body=body, line=kw.line)
+
+        elif self._match(TokenType.KEYWORD_DARI):
+            start_expr = self._parse_addition()
+            self._consume(TokenType.KEYWORD_HINGGA, "Diharapkan kata kunci 'hingga'")
+            end_expr = self._parse_addition()
+            self._consume(TokenType.NEWLINE, "Diharapkan baris baru setelah rentang 'untuk'")
+            body = self._parse_block()
+            return ForRangeStmt(var_name=var_ident.value, start_expr=start_expr, end_expr=end_expr, body=body, line=kw.line)
+
+        else:
+            raise CoreParserError(
+                f"Sintaks perulangan 'untuk' tidak lengkap setelah variabel '{var_ident.value}'.",
+                kw.line,
+                kw.column,
+                source_code=self.source_code,
+                cause="Perulangan 'untuk' memerlukan kata kunci 'dalam' (untuk daftar) atau 'dari' (untuk rentang angka).",
+                solution="Gunakan 'untuk item dalam daftar' atau 'untuk i dari 1 hingga 10'."
+            )
+
+    def _parse_list_append(self) -> ListAppendStmt:
+        kw = self._consume(TokenType.KEYWORD_TAMBAH, "Diharapkan kata kunci 'tambah'")
+        target = self._consume(TokenType.IDENTIFIER, "Diharapkan nama variabel daftar setelah kata kunci 'tambah'")
+        item_expr = self._parse_expression()
+        self._match(TokenType.NEWLINE)
+        return ListAppendStmt(target_name=target.value, item_expr=item_expr, line=kw.line)
+
+    def _parse_list_remove(self) -> ListRemoveStmt:
+        kw = self._consume(TokenType.KEYWORD_HAPUS, "Diharapkan kata kunci 'hapus'")
+        target = self._consume(TokenType.IDENTIFIER, "Diharapkan nama variabel daftar setelah kata kunci 'hapus'")
+        index_expr = self._parse_expression()
+        self._match(TokenType.NEWLINE)
+        return ListRemoveStmt(target_name=target.value, index_expr=index_expr, line=kw.line)
 
     def _parse_input(self) -> InputExpr:
         kw = self._consume(TokenType.KEYWORD_MASUKAN, "Diharapkan kata kunci 'masukan'")
@@ -456,6 +492,23 @@ class Parser:
         if self._match(TokenType.KEYWORD_KOSONG):
             return Literal(value=None, line=tok.line)
 
+        if self._match(TokenType.LBRACKET):
+            kw = self._previous()
+            elements: List[ASTNode] = []
+            if not self._check(TokenType.RBRACKET):
+                elements.append(self._parse_expression())
+                while self._match(TokenType.COMMA):
+                    if self._check(TokenType.RBRACKET):
+                        break
+                    elements.append(self._parse_expression())
+            self._consume(
+                TokenType.RBRACKET,
+                "Diharapkan tanda kurung siku penutup ']' untuk daftar.",
+                cause="Daftar (list) dibuka dengan '[' tetapi belum ditutup dengan ']'.",
+                solution="Tambahkan tanda ']' di akhir elemen daftar."
+            )
+            return ListLiteral(elements=elements, line=kw.line)
+
         if self._match(TokenType.KEYWORD_MASUKAN):
             kw = self._previous()
             prompt_expr = None
@@ -467,11 +520,14 @@ class Parser:
             kw = self._previous()
             func_name = self._consume(TokenType.IDENTIFIER, "Diharapkan nama fungsi setelah kata kunci 'panggil'")
             args = []
-            # Baca argumen hingga operator atau akhir baris
-            while not self._check(TokenType.NEWLINE) and not self._is_at_end() and not self._is_operator(self._peek().type):
-                self._match(TokenType.COMMA)
-                if self._check(TokenType.NEWLINE) or self._is_at_end() or self._is_operator(self._peek().type):
-                    break
+            # Baca argumen hingga operator, koma, kurung siku penutup, atau akhir baris
+            while (
+                not self._check(TokenType.NEWLINE)
+                and not self._is_at_end()
+                and not self._is_operator(self._peek().type)
+                and not self._check(TokenType.COMMA)
+                and not self._check(TokenType.RBRACKET)
+            ):
                 args.append(self._parse_primary())
             return FunctionCall(name=func_name.value, args=args, line=kw.line)
 

@@ -31,15 +31,15 @@
     },
     {
       "name": "keyword.control.core",
-      "match": "\\b(jika|lainjika|selainitu|selama|kembalikan)\\b"
+      "match": "\\b(jika|lainjika|selainitu|selama|untuk|dari|hingga|dalam|kembalikan)\\b"
     },
     {
       "name": "keyword.declaration.core",
-      "match": "\\b(variabel|fungsi|panggil)\\b"
+      "match": "\\b(variabel|fungsi|panggil|tambah|hapus)\\b"
     },
     {
       "name": "support.function.core",
-      "match": "\\b(cetak)\\b"
+      "match": "\\b(cetak|masukan|acak|panjang|angka|teks|ambil|gabung)\\b"
     },
     {
       "name": "keyword.operator.logical.core",

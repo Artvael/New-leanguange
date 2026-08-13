@@ -193,6 +193,16 @@ class Lexer:
                 i += 1
                 col += 1
                 has_line_tokens = True
+            elif char == "[":
+                self.tokens.append(Token(TokenType.LBRACKET, "[", line_num, col))
+                i += 1
+                col += 1
+                has_line_tokens = True
+            elif char == "]":
+                self.tokens.append(Token(TokenType.RBRACKET, "]", line_num, col))
+                i += 1
+                col += 1
+                has_line_tokens = True
             # Identifier atau Kata Kunci (Keywords)
             elif char.isalpha() or char == "_":
                 ident_val, new_i, ident_cols = self._read_identifier(line, i)

@@ -30,13 +30,18 @@
 | `selainitu` | `else` | Cabang kondisi akhir |
 | `selama` | `while` | Memulai perulangan while |
 | `untuk ... dari ... hingga` | `for i in range()` | Perulangan rentang nilai otomatis |
+| `untuk ... dalam ...` | `for item in list` | Perulangan setiap elemen dalam daftar |
+| `tambah daftar item` | `list.append(item)` | Menambahkan elemen ke dalam daftar |
+| `hapus daftar indeks` | `list.pop(index)` | Menghapus elemen daftar pada indeks |
 | `fungsi` | `def` / `function` | Mendefinisikan fungsi baru |
 | `kembalikan` | `return` | Mengembalikan nilai dari fungsi |
 | `panggil` | `call` | Memanggil fungsi dalam ekspresi |
 | `dan`, `atau`, `bukan` | `and`, `or`, `not` | Operator logika |
 | `benar`, `salah`, `kosong` | `True`, `False`, `None` | Nilai boolean dan kosong |
 | `acak min max` | `random.randint()` | Fungsi bawaan angka acak |
-| `panjang teks` | `len()` | Fungsi bawaan panjang teks |
+| `panjang val` | `len()` | Fungsi bawaan panjang teks atau daftar |
+| `ambil daftar idx` | `list[idx]` | Mengambil elemen pada indeks tertentu |
+| `gabung daftar pemisah`| `separator.join(list)` | Menggabungkan daftar menjadi satu teks |
 | `angka teks` | `int()` / `float()` | Konversi teks ke angka |
 
 ---
@@ -89,6 +94,15 @@ fungsi tambah a b
 
 variabel hasil = panggil tambah 25 75
 cetak "Hasil 25 + 75 =", hasil
+```
+
+### 5. Tipe Data Daftar (List) & Perulangan Elemen
+```python
+variabel nama_siswa = ["Andi", "Budi", "Siti"]
+tambah nama_siswa "Juna"
+
+untuk nama dalam nama_siswa
+    cetak "Halo,", nama
 ```
 
 ---

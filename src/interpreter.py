@@ -3,8 +3,9 @@ from typing import Dict, Any, Optional, List
 from .error_reporter import CoreDiagnosticError, suggest_variable
 from .ast_nodes import (
     ASTNode, Program, Block, VarDecl, AssignStmt, PrintStmt,
-    IfStmt, WhileStmt, ForRangeStmt, FunctionDef, ReturnStmt, FunctionCall,
-    BinaryOp, UnaryOp, Literal, Variable, InputExpr
+    IfStmt, WhileStmt, ForRangeStmt, ForInStmt, ListAppendStmt, ListRemoveStmt,
+    FunctionDef, ReturnStmt, FunctionCall,
+    BinaryOp, UnaryOp, Literal, Variable, InputExpr, ListLiteral
 )
 
 
@@ -150,8 +151,10 @@ class Interpreter:
             a_int, b_int = int(a), int(b)
             return random.randint(min(a_int, b_int), max(a_int, b_int))
 
-        # panjang val -> panjang string/teks
+        # panjang val -> panjang string atau daftar (list)
         def _builtin_panjang(val):
+            if isinstance(val, (list, tuple, str)):
+                return len(val)
             return len(str(val))
 
         # angka val -> mengonversi string ke tipe angka
@@ -166,10 +169,45 @@ class Interpreter:
         def _builtin_teks(val):
             return self._format_value(val)
 
+        # ambil lst idx -> mengambil elemen dari daftar berdasarkan indeks
+        def _builtin_ambil(lst, idx):
+            if not isinstance(lst, (list, tuple, str)):
+                raise ValueError("Fungsi 'ambil' hanya dapat digunakan pada daftar (list) atau teks.")
+            if not isinstance(idx, int):
+                raise ValueError("Indeks harus berupa bilangan bulat.")
+            if not (0 <= idx < len(lst) or -len(lst) <= idx < 0):
+                raise ValueError(f"Indeks {idx} berada di luar jangkauan (panjang data: {len(lst)}).")
+            return lst[idx]
+
+        # tambah lst item -> menambahkan elemen ke akhir daftar
+        def _builtin_tambah(lst, item):
+            if not isinstance(lst, list):
+                raise ValueError("Fungsi 'tambah' hanya dapat digunakan pada tipe data daftar (list).")
+            lst.append(item)
+            return lst
+
+        # hapus lst idx -> menghapus elemen dari daftar berdasarkan indeks
+        def _builtin_hapus(lst, idx):
+            if not isinstance(lst, list):
+                raise ValueError("Fungsi 'hapus' hanya dapat digunakan pada tipe data daftar (list).")
+            if not isinstance(idx, int):
+                raise ValueError("Indeks harus berupa bilangan bulat.")
+            if not (0 <= idx < len(lst) or -len(lst) <= idx < 0):
+                raise ValueError(f"Indeks {idx} berada di luar jangkauan daftar (panjang: {len(lst)}).")
+            return lst.pop(idx)
+
+        # gabung lst pemisah -> menggabungkan elemen daftar menjadi satu teks
+        def _builtin_gabung(lst, pemisah=" "):
+            if not isinstance(lst, (list, tuple)):
+                raise ValueError("Fungsi 'gabung' hanya dapat digunakan pada daftar (list).")
+            return str(pemisah).join([self._format_value(x) for x in lst])
+
         self.global_env.define("acak", CoreBuiltinFunction("acak", 2, _builtin_acak))
         self.global_env.define("panjang", CoreBuiltinFunction("panjang", 1, _builtin_panjang))
         self.global_env.define("angka", CoreBuiltinFunction("angka", 1, _builtin_angka))
         self.global_env.define("teks", CoreBuiltinFunction("teks", 1, _builtin_teks))
+        self.global_env.define("ambil", CoreBuiltinFunction("ambil", 2, _builtin_ambil))
+        self.global_env.define("gabung", CoreBuiltinFunction("gabung", 2, _builtin_gabung))
 
     def run(self, program: Program, source_code: str = ""):
         self.source_code = source_code
@@ -217,7 +255,7 @@ class Interpreter:
             start = self.evaluate(stmt.start_expr)
             end = self.evaluate(stmt.end_expr)
             if not isinstance(start, (int, float)) or not isinstance(end, (int, float)):
-                raise CoreRuntimeError("Batas rentang perulangan 'untuk' harus berupa angka.", stmt.line)
+                raise CoreRuntimeError("Batas rentang perulangan 'untuk' harus berupa angka.", stmt.line, source_code=self.source_code)
             start_int = int(start)
             end_int = int(end)
             step = 1 if start_int <= end_int else -1
@@ -227,6 +265,59 @@ class Interpreter:
                 loop_env = Environment(parent=self.current_env)
                 loop_env.define(stmt.var_name, i)
                 self.execute_block(stmt.body, loop_env)
+
+        elif isinstance(stmt, ForInStmt):
+            iterable = self.evaluate(stmt.iterable_expr)
+            if not isinstance(iterable, (list, tuple, str)):
+                raise CoreRuntimeError(
+                    f"Tipe data '{type(iterable).__name__}' tidak dapat diulang dalam 'untuk ... dalam ...'.",
+                    stmt.line,
+                    source_code=self.source_code,
+                    cause="Perulangan 'dalam' membutuhkan tipe data kumpulan (seperti daftar atau teks).",
+                    solution="Pastikan nilai setelah kata kunci 'dalam' berupa variabel daftar (contoh: [1, 2, 3] atau nama_siswa)."
+                )
+            for item in iterable:
+                loop_env = Environment(parent=self.current_env)
+                loop_env.define(stmt.var_name, item)
+                self.execute_block(stmt.body, loop_env)
+
+        elif isinstance(stmt, ListAppendStmt):
+            lst = self.current_env.get(stmt.target_name, stmt.line, self.source_code)
+            if not isinstance(lst, list):
+                raise CoreRuntimeError(
+                    f"Variabel '{stmt.target_name}' bukan merupakan sebuah daftar (list).",
+                    stmt.line,
+                    source_code=self.source_code,
+                    cause=f"Perintah 'tambah' hanya dapat digunakan pada daftar, bukan '{type(lst).__name__}'.",
+                    solution=f"Buat terlebih dahulu sebagai daftar dengan 'variabel {stmt.target_name} = []'."
+                )
+            item = self.evaluate(stmt.item_expr)
+            lst.append(item)
+
+        elif isinstance(stmt, ListRemoveStmt):
+            lst = self.current_env.get(stmt.target_name, stmt.line, self.source_code)
+            if not isinstance(lst, list):
+                raise CoreRuntimeError(
+                    f"Variabel '{stmt.target_name}' bukan merupakan sebuah daftar (list).",
+                    stmt.line,
+                    source_code=self.source_code
+                )
+            idx = self.evaluate(stmt.index_expr)
+            if not isinstance(idx, int):
+                raise CoreRuntimeError(
+                    "Indeks elemen yang ingin dihapus harus berupa angka bulat.",
+                    stmt.line,
+                    source_code=self.source_code
+                )
+            if not (0 <= idx < len(lst) or -len(lst) <= idx < 0):
+                raise CoreRuntimeError(
+                    f"Indeks {idx} berada di luar jangkauan daftar '{stmt.target_name}' (panjang daftar: {len(lst)}).",
+                    stmt.line,
+                    source_code=self.source_code,
+                    cause=f"Daftar '{stmt.target_name}' hanya memiliki {len(lst)} elemen (indeks 0 hingga {max(0, len(lst)-1)}).",
+                    solution="Gunakan indeks yang valid dalam batas panjang daftar."
+                )
+            lst.pop(idx)
 
         elif isinstance(stmt, InputExpr):
             self.evaluate(stmt)
@@ -257,6 +348,9 @@ class Interpreter:
     def evaluate(self, expr: ASTNode) -> Any:
         if isinstance(expr, Literal):
             return expr.value
+
+        elif isinstance(expr, ListLiteral):
+            return [self.evaluate(elem) for elem in expr.elements]
 
         elif isinstance(expr, Variable):
             return self.current_env.get(expr.name, expr.line, self.source_code)
@@ -403,9 +497,15 @@ class Interpreter:
         raise CoreRuntimeError(f"Operator biner '{op}' tidak didukung", line)
 
     def _call_function(self, call_node: FunctionCall) -> Any:
-        func = self.current_env.get(call_node.name, call_node.line)
+        func = self.current_env.get(call_node.name, call_node.line, self.source_code)
         if not isinstance(func, (CoreFunction, CoreBuiltinFunction)):
-            raise CoreRuntimeError(f"'{call_node.name}' bukan sebuah fungsi yang dapat dipanggil.", call_node.line)
+            raise CoreRuntimeError(
+                f"'{call_node.name}' bukan sebuah fungsi yang dapat dipanggil.",
+                call_node.line,
+                source_code=self.source_code,
+                cause=f"'{call_node.name}' bertipe '{type(func).__name__}', bukan fungsi.",
+                solution="Pastikan nama yang dipanggil dibuat menggunakan 'fungsi ...'."
+            )
         
         args = [self.evaluate(arg) for arg in call_node.args]
         return func.call(self, args, call_node.line)
@@ -430,4 +530,12 @@ class Interpreter:
             return "salah"
         if val is None:
             return "kosong"
+        if isinstance(val, list):
+            items = []
+            for x in val:
+                if isinstance(x, str):
+                    items.append(f'"{x}"')
+                else:
+                    items.append(self._format_value(x))
+            return "[" + ", ".join(items) + "]"
         return str(val)

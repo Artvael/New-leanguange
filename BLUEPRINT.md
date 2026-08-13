@@ -32,9 +32,9 @@ Dokumen ini berisi analisis mendalam mengenai status bahasa **Core saat ini**, v
 ### 📌 FASE 1: Struktur Data & Manajemen Berkas (Prioritas Tinggi)
 > **Tujuan**: Memungkinkan pelajar mengelola banyak data sekaligus dan menyimpan data ke file komputer.
 
-- [ ] **PR 1.1: Tipe Data `daftar` (List / Array)**
+- [x] **PR 1.1: Tipe Data `daftar` (List / Array)**
   - Sintaks: `variabel nilai = [80, 90, 75, 100]`
-  - Operasi: `tambah nilai 95`, `ambil nilai 0`, `panjang nilai`
+  - Operasi: `tambah nilai 95`, `hapus nilai 0`, `panggil ambil nilai 0`, `panggil panjang nilai`, `panggil gabung nilai " "`
   - Perulangan: `untuk item dalam nilai`
 - [ ] **PR 1.2: Tipe Data `kamus` (Dictionary / Map / Objek)**
   - Sintaks: `variabel siswa = { nama: "Budi", umur: 17, kota: "Jakarta" }`
@@ -62,11 +62,11 @@ Dokumen ini berisi analisis mendalam mengenai status bahasa **Core saat ini**, v
 
 - [ ] **PR 3.1: Sistem Impor Antar-File (`muat`)**
   - Memecah program besar ke beberapa file: `muat "rumus_matematika.cr"`
-- [ ] **PR 3.2: Detektor Typo Cerdas (*"Apakah maksud Anda...?"*)**
-  - Jika siswa mengetik `cetakk` atau `varriabel`, interpreter otomatis menyarankan:
-    `❌ [Kesalahan] Kata 'cetakk' tidak dikenali. Apakah maksud Anda 'cetak'?`
-- [ ] **PR 3.3: Penunjuk Visual Baris Kode pada Error**
-  - Menampilkan cuplikan baris kode yang salah dengan tanda panah `^` tepat di bawah karakter penyebab error.
+- [x] **PR 3.2: Detektor Typo Cerdas (*"Apakah maksud Anda...?"*)**
+  - Koreksi typo kata kunci otomatis (`cetakk` -> `cetak`, `jik` -> `jika`).
+  - Koreksi typo nama variabel otomatis (`nama_penggun` -> `nama_pengguna`).
+- [x] **PR 3.3: Visual Error Pointer & Solusi Aksi**
+  - Menampilkan cuplikan kode persis dengan tanda panah visual (`^^^`), penjelasan penyebab, dan saran perbaikan.
 
 ---
 

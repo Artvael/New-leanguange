@@ -28,11 +28,18 @@ class TokenType(Enum):
     KEYWORD_UNTUK = auto()      # untuk (for loop)
     KEYWORD_DARI = auto()       # dari (range start)
     KEYWORD_HINGGA = auto()     # hingga (range end)
+    KEYWORD_DALAM = auto()      # dalam (for-in loop)
+    KEYWORD_TAMBAH = auto()     # tambah (list append)
+    KEYWORD_HAPUS = auto()      # hapus (list remove)
 
     # Literal & Identifier
     IDENTIFIER = auto()
     NUMBER = auto()
     STRING = auto()
+
+    # Tanda Kurung Siku (Daftar / List)
+    LBRACKET = auto()       # [
+    RBRACKET = auto()       # ]
 
     # Operator Matematika & Perbandingan
     PLUS = auto()           # +
@@ -68,6 +75,9 @@ KEYWORDS = {
     "untuk": TokenType.KEYWORD_UNTUK,
     "dari": TokenType.KEYWORD_DARI,
     "hingga": TokenType.KEYWORD_HINGGA,
+    "dalam": TokenType.KEYWORD_DALAM,
+    "tambah": TokenType.KEYWORD_TAMBAH,
+    "hapus": TokenType.KEYWORD_HAPUS,
     "fungsi": TokenType.KEYWORD_FUNGSI,
     "kembalikan": TokenType.KEYWORD_KEMBALIKAN,
     "dan": TokenType.KEYWORD_DAN,
