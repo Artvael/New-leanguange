@@ -1,13 +1,9 @@
-"""
-Interpreter untuk Bahasa Pemrograman Core (.cr).
-Menjalankan AST secara langsung (Tree-walk interpreter) dengan manajemen scope, fungsi, perulangan, dan percabangan.
-"""
-
+import random
 from typing import Dict, Any, Optional, List
 from .ast_nodes import (
     ASTNode, Program, Block, VarDecl, AssignStmt, PrintStmt,
-    IfStmt, WhileStmt, FunctionDef, ReturnStmt, FunctionCall,
-    BinaryOp, UnaryOp, Literal, Variable
+    IfStmt, WhileStmt, ForRangeStmt, FunctionDef, ReturnStmt, FunctionCall,
+    BinaryOp, UnaryOp, Literal, Variable, InputExpr
 )
 
 
@@ -79,10 +75,59 @@ class CoreFunction:
         return None
 
 
+class CoreBuiltinFunction:
+    """Representasi fungsi bawaan sistem dalam bahasa Core."""
+    def __init__(self, name: str, arity: int, func):
+        self.name = name
+        self.arity = arity
+        self.func = func
+
+    def call(self, interpreter: "Interpreter", args: List[Any], line: int) -> Any:
+        if self.arity != -1 and len(args) != self.arity:
+            raise CoreRuntimeError(
+                f"Fungsi bawaan '{self.name}' membutuhkan {self.arity} argumen, tetapi diberikan {len(args)}.",
+                line
+            )
+        try:
+            return self.func(*args)
+        except Exception as e:
+            raise CoreRuntimeError(f"Kesalahan pada fungsi bawaan '{self.name}': {e}", line)
+
+
 class Interpreter:
     def __init__(self):
         self.global_env = Environment()
         self.current_env = self.global_env
+        self._register_builtins()
+
+    def _register_builtins(self):
+        # acak min max -> menghasilkan angka acak antara min dan max
+        def _builtin_acak(a, b):
+            if not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
+                raise ValueError("Argumen 'acak' harus berupa angka.")
+            a_int, b_int = int(a), int(b)
+            return random.randint(min(a_int, b_int), max(a_int, b_int))
+
+        # panjang val -> panjang string/teks
+        def _builtin_panjang(val):
+            return len(str(val))
+
+        # angka val -> mengonversi string ke tipe angka
+        def _builtin_angka(val):
+            try:
+                num = float(val)
+                return int(num) if num.is_integer() else num
+            except Exception:
+                raise ValueError(f"Tidak dapat mengubah '{val}' menjadi angka.")
+
+        # teks val -> mengonversi nilai ke teks
+        def _builtin_teks(val):
+            return self._format_value(val)
+
+        self.global_env.define("acak", CoreBuiltinFunction("acak", 2, _builtin_acak))
+        self.global_env.define("panjang", CoreBuiltinFunction("panjang", 1, _builtin_panjang))
+        self.global_env.define("angka", CoreBuiltinFunction("angka", 1, _builtin_angka))
+        self.global_env.define("teks", CoreBuiltinFunction("teks", 1, _builtin_teks))
 
     def run(self, program: Program):
         for stmt in program.statements:
@@ -125,6 +170,24 @@ class Interpreter:
             while self._is_truthy(self.evaluate(stmt.condition)):
                 self.execute_block(stmt.body, Environment(parent=self.current_env))
 
+        elif isinstance(stmt, ForRangeStmt):
+            start = self.evaluate(stmt.start_expr)
+            end = self.evaluate(stmt.end_expr)
+            if not isinstance(start, (int, float)) or not isinstance(end, (int, float)):
+                raise CoreRuntimeError("Batas rentang perulangan 'untuk' harus berupa angka.", stmt.line)
+            start_int = int(start)
+            end_int = int(end)
+            step = 1 if start_int <= end_int else -1
+            target_range = range(start_int, end_int + (1 if step == 1 else -1), step)
+
+            for i in target_range:
+                loop_env = Environment(parent=self.current_env)
+                loop_env.define(stmt.var_name, i)
+                self.execute_block(stmt.body, loop_env)
+
+        elif isinstance(stmt, InputExpr):
+            self.evaluate(stmt)
+
         elif isinstance(stmt, FunctionDef):
             func = CoreFunction(stmt.name, stmt.params, stmt.body, self.current_env)
             self.current_env.define(stmt.name, func)
@@ -154,6 +217,24 @@ class Interpreter:
 
         elif isinstance(expr, Variable):
             return self.current_env.get(expr.name, expr.line)
+
+        elif isinstance(expr, InputExpr):
+            prompt = ""
+            if expr.prompt_expr is not None:
+                prompt = self._format_value(self.evaluate(expr.prompt_expr))
+            try:
+                raw = input(prompt)
+            except (KeyboardInterrupt, EOFError):
+                raw = ""
+            stripped = raw.strip()
+            # Coba konversi otomatis ke integer/float jika murni angka
+            if stripped.lstrip("-").isdigit():
+                return int(stripped)
+            try:
+                flt = float(stripped)
+                return int(flt) if flt.is_integer() else flt
+            except ValueError:
+                return raw
 
         elif isinstance(expr, FunctionCall):
             return self._call_function(expr)
@@ -253,7 +334,7 @@ class Interpreter:
 
     def _call_function(self, call_node: FunctionCall) -> Any:
         func = self.current_env.get(call_node.name, call_node.line)
-        if not isinstance(func, CoreFunction):
+        if not isinstance(func, (CoreFunction, CoreBuiltinFunction)):
             raise CoreRuntimeError(f"'{call_node.name}' bukan sebuah fungsi yang dapat dipanggil.", call_node.line)
         
         args = [self.evaluate(arg) for arg in call_node.args]

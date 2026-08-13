@@ -58,6 +58,15 @@ class WhileStmt(ASTNode):
 
 
 @dataclass
+class ForRangeStmt(ASTNode):
+    var_name: str
+    start_expr: ASTNode
+    end_expr: ASTNode
+    body: Block
+    line: int
+
+
+@dataclass
 class FunctionDef(ASTNode):
     name: str
     params: List[str]
@@ -75,6 +84,12 @@ class ReturnStmt(ASTNode):
 class FunctionCall(ASTNode):
     name: str
     args: List[ASTNode]
+    line: int
+
+
+@dataclass
+class InputExpr(ASTNode):
+    prompt_expr: Optional[ASTNode]
     line: int
 
 

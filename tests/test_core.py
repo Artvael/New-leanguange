@@ -61,17 +61,36 @@ selainitu
         interp = execute_source(code)
         self.assertEqual(interp.global_env.get("hasil", 1), "B")
 
-    def test_while_loop(self):
-        code = """
+    def test_for_range_loop(self):
+        code_forward = """
 variabel total = 0
-variabel i = 1
-selama i <= 5
+untuk i dari 1 hingga 5
     total = total + i
-    i = i + 1
+"""
+        interp = execute_source(code_forward)
+        self.assertEqual(interp.global_env.get("total", 1), 15)
+
+        code_backward = """
+variabel hasil = ""
+untuk i dari 3 hingga 1
+    hasil = hasil + panggil teks i
+"""
+        interp2 = execute_source(code_backward)
+        self.assertEqual(interp2.global_env.get("hasil", 1), "321")
+
+    def test_builtin_functions(self):
+        code = """
+variabel kata = "Indonesia"
+variabel p = panggil panjang kata
+variabel str_num = "42"
+variabel num = panggil angka str_num
+variabel random_val = panggil acak 10 20
 """
         interp = execute_source(code)
-        self.assertEqual(interp.global_env.get("total", 1), 15)
-        self.assertEqual(interp.global_env.get("i", 1), 6)
+        self.assertEqual(interp.global_env.get("p", 1), 9)
+        self.assertEqual(interp.global_env.get("num", 1), 42)
+        rnd = interp.global_env.get("random_val", 1)
+        self.assertTrue(10 <= rnd <= 20)
 
     def test_functions_and_recursion(self):
         code = """

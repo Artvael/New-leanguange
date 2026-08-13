@@ -23,26 +23,39 @@
 | Kata Kunci | Padanan Bahasa Inggris | Keterangan |
 | :--- | :--- | :--- |
 | `variabel` | `let` / `var` | Mendeklarasikan variabel baru |
+| `masukan` | `input()` | Membaca input interaktif dari pengguna/keyboard |
 | `cetak` | `print` | Menampilkan nilai ke layar |
 | `jika` | `if` | Memulai blok percabangan kondisi |
 | `lainjika` | `elif` / `else if` | Cabang kondisi lanjutan |
 | `selainitu` | `else` | Cabang kondisi akhir |
-| `selama` | `while` | Memulai perulangan logika |
+| `selama` | `while` | Memulai perulangan while |
+| `untuk ... dari ... hingga` | `for i in range()` | Perulangan rentang nilai otomatis |
 | `fungsi` | `def` / `function` | Mendefinisikan fungsi baru |
 | `kembalikan` | `return` | Mengembalikan nilai dari fungsi |
 | `panggil` | `call` | Memanggil fungsi dalam ekspresi |
-| `dan` | `and` | Operator logika AND |
-| `atau` | `or` | Operator logika OR |
-| `bukan` | `not` | Operator logika NOT |
-| `benar` | `true` | Nilai boolean benar |
-| `salah` | `false` | Nilai boolean salah |
-| `kosong` | `null` / `None` | Nilai kosong |
+| `dan`, `atau`, `bukan` | `and`, `or`, `not` | Operator logika |
+| `benar`, `salah`, `kosong` | `True`, `False`, `None` | Nilai boolean dan kosong |
+| `acak min max` | `random.randint()` | Fungsi bawaan angka acak |
+| `panjang teks` | `len()` | Fungsi bawaan panjang teks |
+| `angka teks` | `int()` / `float()` | Konversi teks ke angka |
 
 ---
 
 ## Contoh Program Core
 
-### 1. Variabel dan Cetak
+### 1. Game Tebak Angka Interaktif (`masukan`, `untuk`, `acak`)
+```python
+variabel angka_rahasia = panggil acak 1 10
+
+untuk putaran dari 1 hingga 3
+    variabel tebakan = masukan "Masukkan tebakan (1-10): "
+    jika tebakan == angka_rahasia
+        cetak "Tebakanmu Benar! Selamat!"
+    selainitu
+        cetak "Coba lagi ya!"
+```
+
+### 2. Variabel dan Cetak
 ```python
 variabel nama = "Budi"
 variabel umur = 17
@@ -51,7 +64,7 @@ cetak "Halo nama saya", nama
 cetak "Umur saya", umur, "tahun"
 ```
 
-### 2. Percabangan Kondisi (`jika` - `selainitu`)
+### 3. Percabangan Kondisi (`jika` - `selainitu`)
 ```python
 jika umur >= 17
     cetak nama, "sudah memiliki KTP"

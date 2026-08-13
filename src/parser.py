@@ -7,8 +7,8 @@ from typing import List, Optional, Tuple
 from .tokens import Token, TokenType
 from .ast_nodes import (
     ASTNode, Program, Block, VarDecl, AssignStmt, PrintStmt,
-    IfStmt, WhileStmt, FunctionDef, ReturnStmt, FunctionCall,
-    BinaryOp, UnaryOp, Literal, Variable
+    IfStmt, WhileStmt, ForRangeStmt, FunctionDef, ReturnStmt, FunctionCall,
+    BinaryOp, UnaryOp, Literal, Variable, InputExpr
 )
 
 
@@ -99,12 +99,19 @@ class Parser:
             return self._parse_if()
         elif tok.type == TokenType.KEYWORD_SELAMA:
             return self._parse_while()
+        elif tok.type == TokenType.KEYWORD_UNTUK:
+            return self._parse_for_range()
         elif tok.type == TokenType.KEYWORD_FUNGSI:
             return self._parse_function_def()
         elif tok.type == TokenType.KEYWORD_KEMBALIKAN:
             return self._parse_return()
         elif tok.type == TokenType.KEYWORD_PANGGIL:
             return self._parse_explicit_call_stmt()
+        elif tok.type == TokenType.KEYWORD_MASUKAN:
+            # masukan sebagai pernyataan mandiri
+            expr = self._parse_input()
+            self._match(TokenType.NEWLINE)
+            return expr
         elif tok.type == TokenType.INDENT:
             raise CoreParserError("Indentasi tidak terduga (spasi menjorok di luar blok pernyataan)", tok.line, tok.column)
         elif tok.type == TokenType.DEDENT:
@@ -187,6 +194,24 @@ class Parser:
         self._consume(TokenType.NEWLINE, "Diharapkan baris baru setelah kondisi 'selama'")
         body = self._parse_block()
         return WhileStmt(condition=condition, body=body, line=kw.line)
+
+    def _parse_for_range(self) -> ForRangeStmt:
+        kw = self._consume(TokenType.KEYWORD_UNTUK, "Diharapkan kata kunci 'untuk'")
+        var_ident = self._consume(TokenType.IDENTIFIER, "Diharapkan nama variabel pencacah setelah 'untuk'")
+        self._consume(TokenType.KEYWORD_DARI, f"Diharapkan kata kunci 'dari' setelah variabel '{var_ident.value}'")
+        start_expr = self._parse_addition()
+        self._consume(TokenType.KEYWORD_HINGGA, "Diharapkan kata kunci 'hingga'")
+        end_expr = self._parse_addition()
+        self._consume(TokenType.NEWLINE, "Diharapkan baris baru setelah rentang 'untuk'")
+        body = self._parse_block()
+        return ForRangeStmt(var_name=var_ident.value, start_expr=start_expr, end_expr=end_expr, body=body, line=kw.line)
+
+    def _parse_input(self) -> InputExpr:
+        kw = self._consume(TokenType.KEYWORD_MASUKAN, "Diharapkan kata kunci 'masukan'")
+        prompt_expr = None
+        if not self._check(TokenType.NEWLINE) and not self._is_at_end() and not self._is_operator(self._peek().type):
+            prompt_expr = self._parse_addition()
+        return InputExpr(prompt_expr=prompt_expr, line=kw.line)
 
     def _parse_function_def(self) -> FunctionDef:
         kw = self._consume(TokenType.KEYWORD_FUNGSI, "Diharapkan kata kunci 'fungsi'")
@@ -336,6 +361,13 @@ class Parser:
 
         if self._match(TokenType.KEYWORD_KOSONG):
             return Literal(value=None, line=tok.line)
+
+        if self._match(TokenType.KEYWORD_MASUKAN):
+            kw = self._previous()
+            prompt_expr = None
+            if not self._check(TokenType.NEWLINE) and not self._is_at_end() and not self._is_operator(self._peek().type):
+                prompt_expr = self._parse_addition()
+            return InputExpr(prompt_expr=prompt_expr, line=kw.line)
 
         if self._match(TokenType.KEYWORD_PANGGIL):
             kw = self._previous()

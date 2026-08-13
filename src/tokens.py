@@ -23,7 +23,11 @@ class TokenType(Enum):
     KEYWORD_BENAR = auto()      # benar (True)
     KEYWORD_SALAH = auto()      # salah (False)
     KEYWORD_KOSONG = auto()     # kosong (None)
-    KEYWORD_PANGGIL = auto()    # panggil (opsional untuk pemanggilan fungsi eksplisit)
+    KEYWORD_PANGGIL = auto()    # panggil (pemanggilan fungsi)
+    KEYWORD_MASUKAN = auto()    # masukan (input pengguna)
+    KEYWORD_UNTUK = auto()      # untuk (for loop)
+    KEYWORD_DARI = auto()       # dari (range start)
+    KEYWORD_HINGGA = auto()     # hingga (range end)
 
     # Literal & Identifier
     IDENTIFIER = auto()
@@ -61,6 +65,9 @@ KEYWORDS = {
     "lainjika": TokenType.KEYWORD_LAINJIKA,
     "selainitu": TokenType.KEYWORD_SELAINITU,
     "selama": TokenType.KEYWORD_SELAMA,
+    "untuk": TokenType.KEYWORD_UNTUK,
+    "dari": TokenType.KEYWORD_DARI,
+    "hingga": TokenType.KEYWORD_HINGGA,
     "fungsi": TokenType.KEYWORD_FUNGSI,
     "kembalikan": TokenType.KEYWORD_KEMBALIKAN,
     "dan": TokenType.KEYWORD_DAN,
@@ -70,6 +77,7 @@ KEYWORDS = {
     "salah": TokenType.KEYWORD_SALAH,
     "kosong": TokenType.KEYWORD_KOSONG,
     "panggil": TokenType.KEYWORD_PANGGIL,
+    "masukan": TokenType.KEYWORD_MASUKAN,
 }
 
 
