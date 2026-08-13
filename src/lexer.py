@@ -5,15 +5,21 @@ Bertugas memecah teks sumber menjadi aliran token dengan penanganan sistem inden
 
 from typing import List
 from .tokens import Token, TokenType, KEYWORDS
+from .error_reporter import CoreDiagnosticError
 
 
-class CoreLexerError(Exception):
-    """Exception khusus untuk error leksikal dengan pesan berbahasa Indonesia."""
-    def __init__(self, message: str, line: int, column: int):
-        self.message = message
-        self.line = line
-        self.column = column
-        super().__init__(f"[Kesalahan Leksikal] Baris {line}, Kolom {column}: {message}")
+class CoreLexerError(CoreDiagnosticError):
+    """Exception khusus untuk error leksikal dengan diagnostik cerdas."""
+    def __init__(self, message: str, line: int, column: int = 1, source_code: str = "", cause: str = "", solution: str = ""):
+        super().__init__(
+            error_type="Kesalahan Leksikal",
+            message=message,
+            line=line,
+            column=column,
+            source_code=source_code,
+            cause=cause,
+            solution=solution
+        )
 
 
 class Lexer:
@@ -67,9 +73,12 @@ class Lexer:
             
             if not self.indent_stack or self.indent_stack[-1] != indent_level:
                 raise CoreLexerError(
-                    f"Indentasi tidak konsisten. Tingkat indentasi {indent_level} tidak cocok dengan blok sebelumnya.",
+                    f"Tingkat indentasi {indent_level} spasi tidak cocok dengan blok sebelumnya.",
                     line_num,
-                    1
+                    1,
+                    source_code=self.source_code,
+                    cause="Jumlah spasi di awal baris tidak sejajar dengan blok induknya.",
+                    solution="Pastikan jumlah spasi konsisten (misal: 4 spasi untuk blok tingkat 1, 8 spasi untuk blok tingkat 2, atau tekan Tab)."
                 )
 
         # Tokenisasi konten baris
@@ -203,7 +212,21 @@ class Lexer:
                 col += ident_cols
                 has_line_tokens = True
             else:
-                raise CoreLexerError(f"Karakter tidak dikenal atau dilarang '{char}'", line_num, col)
+                if char in "{}();":
+                    cause = f"Bahasa Core dirancang tanpa simbol '{char}'."
+                    solution = f"Hapus simbol '{char}'. Gunakan spasi indentasi untuk blok kode dan spasi antar argumen."
+                else:
+                    cause = f"Karakter '{char}' tidak valid dalam sintaks bahasa Core."
+                    solution = "Periksa kembali ejaan atau karakter yang Anda ketik."
+
+                raise CoreLexerError(
+                    f"Karakter tidak diizinkan atau tidak dikenal '{char}'",
+                    line_num,
+                    col,
+                    source_code=self.source_code,
+                    cause=cause,
+                    solution=solution
+                )
 
         if has_line_tokens:
             self.tokens.append(Token(TokenType.NEWLINE, "\n", line_num, col))
@@ -218,7 +241,14 @@ class Lexer:
             if line[i] == "\\":
                 i += 1
                 if i >= line_len:
-                    raise CoreLexerError("String tidak tertutup (escape sequence menggantung)", line_num, col)
+                    raise CoreLexerError(
+                        "String teks tidak lengkap (escape sequence di ujung baris).",
+                        line_num,
+                        col,
+                        source_code=self.source_code,
+                        cause="Terdapat karakter backslash '\\' sebelum string ditutup.",
+                        solution="Lengkapi karakter escape atau hapus backslash."
+                    )
                 esc = line[i]
                 if esc == "n":
                     result.append("\n")
@@ -237,7 +267,14 @@ class Lexer:
             i += 1
 
         if i >= line_len:
-            raise CoreLexerError(f"String teks tidak ditutup dengan tanda petik {quote_char}", line_num, col)
+            raise CoreLexerError(
+                f"String teks belum ditutup dengan tanda petik {quote_char}",
+                line_num,
+                col,
+                source_code=self.source_code,
+                cause=f"Tanda petik pembuka {quote_char} tidak memiliki pasangan penutup di baris ini.",
+                solution=f"Tambahkan tanda petik {quote_char} di ujung teks."
+            )
 
         i += 1  # Lewati tanda petik penutup
         return "".join(result), i, (i - start_idx)

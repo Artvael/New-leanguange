@@ -1,6 +1,3 @@
-# ==========================================
-# GAME TEBAK ANGKA INTERAKTIF BAHASA CORE
-# ==========================================
 
 cetak "=== SELAMAT DATANG DI GAME TEBAK ANGKA ==="
 cetak "Komputer telah memilih angka rahasia antara 1 sampai 10."
@@ -19,11 +16,13 @@ untuk putaran dari 1 hingga 3
         status_menang = benar
     lainjika tebakan < angka_rahasia
         cetak "💡 Petunjuk: Tebakanmu terlalu KECIL."
+    lainjika tebakan == angka_rahasia + 1 atau tebakan == angka_rahasia - 1
+        cetak "💡 Petunjuk: Tidur aja cik,padahal dikit lagi"
     selainitu
         cetak "💡 Petunjuk: Tebakanmu terlalu BESAR."
     cetak ""
 
 jika status_menang == salah
-    cetak "😢 Yah, kesempatan habis! Angka rahasia sebenarnya adalah:", angka_rahasia
+    cetak "😢 Yah,turu aj lek! kesempatan habis! Angka rahasia sebenarnya adalah:", angka_rahasia
 selainitu
-    cetak "🏆 Hebat! Kamu berhasil mengalahkan komputer!"
+    cetak "🏆 Good! Kamu berhasil mengalahkan komputer!"

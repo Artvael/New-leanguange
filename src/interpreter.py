@@ -1,5 +1,6 @@
 import random
 from typing import Dict, Any, Optional, List
+from .error_reporter import CoreDiagnosticError, suggest_variable
 from .ast_nodes import (
     ASTNode, Program, Block, VarDecl, AssignStmt, PrintStmt,
     IfStmt, WhileStmt, ForRangeStmt, FunctionDef, ReturnStmt, FunctionCall,
@@ -7,12 +8,28 @@ from .ast_nodes import (
 )
 
 
-class CoreRuntimeError(Exception):
-    """Exception khusus untuk error waktu eksekusi (runtime) berbahasa Indonesia."""
-    def __init__(self, message: str, line: int):
-        self.message = message
-        self.line = line
-        super().__init__(f"[Kesalahan Eksekusi] Baris {line}: {message}")
+class CoreRuntimeError(CoreDiagnosticError):
+    """Exception khusus untuk error waktu eksekusi (runtime) dengan diagnostik cerdas."""
+    def __init__(
+        self,
+        message: str,
+        line: int,
+        column: int = 1,
+        source_code: str = "",
+        cause: str = "",
+        solution: str = "",
+        suggestion: Optional[str] = None
+    ):
+        super().__init__(
+            error_type="Kesalahan Eksekusi",
+            message=message,
+            line=line,
+            column=column,
+            source_code=source_code,
+            cause=cause,
+            solution=solution,
+            suggestion=suggestion
+        )
 
 
 class ReturnSignal(Exception):
@@ -27,24 +44,48 @@ class Environment:
         self.values: Dict[str, Any] = {}
         self.parent = parent
 
+    def all_keys(self) -> List[str]:
+        keys = list(self.values.keys())
+        if self.parent is not None:
+            keys.extend(self.parent.all_keys())
+        return list(set(keys))
+
     def define(self, name: str, value: Any):
         self.values[name] = value
 
-    def assign(self, name: str, value: Any, line: int):
+    def assign(self, name: str, value: Any, line: int, source_code: str = ""):
         if name in self.values:
             self.values[name] = value
             return
         if self.parent is not None:
-            self.parent.assign(name, value, line)
+            self.parent.assign(name, value, line, source_code)
             return
-        raise CoreRuntimeError(f"Variabel '{name}' belum dideklarasikan. Gunakan 'variabel {name} = ...' terlebih dahulu.", line)
+        
+        suggestion = suggest_variable(name, self.all_keys())
+        raise CoreRuntimeError(
+            f"Variabel '{name}' belum dideklarasikan.",
+            line=line,
+            source_code=source_code,
+            cause=f"Program mencoba mengisi nilai ke variabel '{name}' yang belum pernah dibuat.",
+            solution=f"Deklarasikan terlebih dahulu dengan 'variabel {name} = ...'.",
+            suggestion=suggestion
+        )
 
-    def get(self, name: str, line: int) -> Any:
+    def get(self, name: str, line: int, source_code: str = "") -> Any:
         if name in self.values:
             return self.values[name]
         if self.parent is not None:
-            return self.parent.get(name, line)
-        raise CoreRuntimeError(f"Variabel atau fungsi '{name}' tidak ditemukan.", line)
+            return self.parent.get(name, line, source_code)
+        
+        suggestion = suggest_variable(name, self.all_keys())
+        raise CoreRuntimeError(
+            f"Variabel atau fungsi '{name}' tidak ditemukan.",
+            line=line,
+            source_code=source_code,
+            cause=f"Nama '{name}' belum pernah dibuat atau berada di luar scope saat ini.",
+            solution=f"Pastikan nama sudah dibuat dengan 'variabel {name} = ...' atau periksa kesalahan penulisan.",
+            suggestion=suggestion
+        )
 
 
 class CoreFunction:
@@ -98,6 +139,7 @@ class Interpreter:
     def __init__(self):
         self.global_env = Environment()
         self.current_env = self.global_env
+        self.source_code = ""
         self._register_builtins()
 
     def _register_builtins(self):
@@ -129,7 +171,8 @@ class Interpreter:
         self.global_env.define("angka", CoreBuiltinFunction("angka", 1, _builtin_angka))
         self.global_env.define("teks", CoreBuiltinFunction("teks", 1, _builtin_teks))
 
-    def run(self, program: Program):
+    def run(self, program: Program, source_code: str = ""):
+        self.source_code = source_code
         for stmt in program.statements:
             self.execute(stmt)
 
@@ -140,7 +183,7 @@ class Interpreter:
 
         elif isinstance(stmt, AssignStmt):
             val = self.evaluate(stmt.value_expr)
-            self.current_env.assign(stmt.name, val, stmt.line)
+            self.current_env.assign(stmt.name, val, stmt.line, self.source_code)
 
         elif isinstance(stmt, PrintStmt):
             output_parts = []
@@ -216,7 +259,7 @@ class Interpreter:
             return expr.value
 
         elif isinstance(expr, Variable):
-            return self.current_env.get(expr.name, expr.line)
+            return self.current_env.get(expr.name, expr.line, self.source_code)
 
         elif isinstance(expr, InputExpr):
             prompt = ""
@@ -243,15 +286,25 @@ class Interpreter:
             operand = self.evaluate(expr.operand)
             if expr.operator == "-":
                 if not isinstance(operand, (int, float)):
-                    raise CoreRuntimeError(f"Operator '-' hanya berlaku untuk angka, bukan '{type(operand).__name__}'", expr.line)
+                    raise CoreRuntimeError(
+                        f"Operator '-' hanya berlaku untuk angka, bukan '{type(operand).__name__}'",
+                        expr.line,
+                        source_code=self.source_code,
+                        cause=f"Tipe data '{type(operand).__name__}' tidak dapat diubah menjadi nilai negatif.",
+                        solution="Pastikan nilai yang dioperasikan adalah angka."
+                    )
                 return -operand
             elif expr.operator == "+":
                 if not isinstance(operand, (int, float)):
-                    raise CoreRuntimeError(f"Operator '+' hanya berlaku untuk angka, bukan '{type(operand).__name__}'", expr.line)
+                    raise CoreRuntimeError(
+                        f"Operator '+' hanya berlaku untuk angka, bukan '{type(operand).__name__}'",
+                        expr.line,
+                        source_code=self.source_code
+                    )
                 return +operand
             elif expr.operator in ("bukan", "not"):
                 return not self._is_truthy(operand)
-            raise CoreRuntimeError(f"Operator unary '{expr.operator}' tidak didukung", expr.line)
+            raise CoreRuntimeError(f"Operator unary '{expr.operator}' tidak didukung", expr.line, source_code=self.source_code)
 
         elif isinstance(expr, BinaryOp):
             # Logika hubung pendek (Short-circuit evaluation)
@@ -271,7 +324,7 @@ class Interpreter:
             right = self.evaluate(expr.right)
             return self._evaluate_binary_op(expr.operator, left, right, expr.line)
 
-        raise CoreRuntimeError(f"Ekspresi tidak dikenal: {type(expr).__name__}", getattr(expr, "line", 1))
+        raise CoreRuntimeError(f"Ekspresi tidak dikenal: {type(expr).__name__}", getattr(expr, "line", 1), source_code=self.source_code)
 
     def _evaluate_binary_op(self, op: str, left: Any, right: Any, line: int) -> Any:
         if op == "+":
@@ -280,7 +333,13 @@ class Interpreter:
                 return self._format_value(left) + self._format_value(right)
             if isinstance(left, (int, float)) and isinstance(right, (int, float)):
                 return left + right
-            raise CoreRuntimeError(f"Tidak dapat menjumlahkan tipe '{type(left).__name__}' dan '{type(right).__name__}'", line)
+            raise CoreRuntimeError(
+                f"Tidak dapat menjumlahkan tipe '{type(left).__name__}' dan '{type(right).__name__}'",
+                line,
+                source_code=self.source_code,
+                cause="Operasi penambahan hanya dapat menggabungkan string atau menjumlahkan angka.",
+                solution="Konversi salah satu nilai menjadi teks atau angka terlebih dahulu."
+            )
 
         elif op == "-":
             self._check_number_operands(op, left, right, line)
@@ -297,15 +356,26 @@ class Interpreter:
         elif op == "/":
             self._check_number_operands(op, left, right, line)
             if right == 0:
-                raise CoreRuntimeError("Kesalahan matematika: Pembagian dengan nol tidak diperbolehkan.", line)
+                raise CoreRuntimeError(
+                    "Pembagian dengan angka nol (0) tidak diperbolehkan.",
+                    line,
+                    source_code=self.source_code,
+                    cause="Angka pembagi bernilai 0, yang tidak terdefinisi dalam perhitungan matematika.",
+                    solution="Pastikan angka pembagi tidak bernilai 0 sebelum melakukan pembagian."
+                )
             res = left / right
-            # Jika hasil bagi adalah bilangan bulat murni, kembalikan integer
             return int(res) if res.is_integer() else res
 
         elif op == "%":
             self._check_number_operands(op, left, right, line)
             if right == 0:
-                raise CoreRuntimeError("Kesalahan matematika: Modulo dengan nol tidak diperbolehkan.", line)
+                raise CoreRuntimeError(
+                    "Operasi modulo dengan angka nol (0) tidak diperbolehkan.",
+                    line,
+                    source_code=self.source_code,
+                    cause="Pembagi modulo bernilai 0.",
+                    solution="Pastikan angka pembagi bernilai selain 0."
+                )
             return left % right
 
         elif op == "==":

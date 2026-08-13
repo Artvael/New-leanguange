@@ -4,7 +4,8 @@ Membangun Abstract Syntax Tree (AST) dari aliran token dengan penanganan blok in
 """
 
 from typing import List, Optional, Tuple
-from .tokens import Token, TokenType
+from .tokens import Token, TokenType, KEYWORDS
+from .error_reporter import CoreDiagnosticError, suggest_keyword
 from .ast_nodes import (
     ASTNode, Program, Block, VarDecl, AssignStmt, PrintStmt,
     IfStmt, WhileStmt, ForRangeStmt, FunctionDef, ReturnStmt, FunctionCall,
@@ -12,18 +13,34 @@ from .ast_nodes import (
 )
 
 
-class CoreParserError(Exception):
-    """Exception khusus untuk error sintaksis dengan pesan berbahasa Indonesia."""
-    def __init__(self, message: str, line: int, column: int = 1):
-        self.message = message
-        self.line = line
-        self.column = column
-        super().__init__(f"[Kesalahan Sintaksis] Baris {line}: {message}")
+class CoreParserError(CoreDiagnosticError):
+    """Exception khusus untuk error sintaksis dengan diagnostik cerdas."""
+    def __init__(
+        self,
+        message: str,
+        line: int,
+        column: int = 1,
+        source_code: str = "",
+        cause: str = "",
+        solution: str = "",
+        suggestion: Optional[str] = None
+    ):
+        super().__init__(
+            error_type="Kesalahan Sintaksis",
+            message=message,
+            line=line,
+            column=column,
+            source_code=source_code,
+            cause=cause,
+            solution=solution,
+            suggestion=suggestion
+        )
 
 
 class Parser:
-    def __init__(self, tokens: List[Token]):
+    def __init__(self, tokens: List[Token], source_code: str = ""):
         self.tokens = tokens
+        self.source_code = source_code
         self.pos = 0
 
     def parse(self) -> Program:
@@ -70,11 +87,22 @@ class Parser:
                 return True
         return False
 
-    def _consume(self, token_type: TokenType, error_message: str) -> Token:
+    def _consume(self, token_type: TokenType, error_message: str, cause: str = "", solution: str = "") -> Token:
         if self._check(token_type):
             return self._advance()
         curr = self._peek()
-        raise CoreParserError(error_message, curr.line, curr.column)
+        suggestion = None
+        if isinstance(curr.value, str):
+            suggestion = suggest_keyword(curr.value, list(KEYWORDS.keys()))
+        raise CoreParserError(
+            error_message,
+            curr.line,
+            curr.column,
+            source_code=self.source_code,
+            cause=cause or f"Token '{curr.value}' tidak sesuai dengan sintaks yang diharapkan.",
+            solution=solution or "Periksa kembali ejaan kata dan urutan instruksi pada baris ini.",
+            suggestion=suggestion
+        )
 
     def _skip_newlines(self):
         while self._match(TokenType.NEWLINE):
@@ -108,27 +136,66 @@ class Parser:
         elif tok.type == TokenType.KEYWORD_PANGGIL:
             return self._parse_explicit_call_stmt()
         elif tok.type == TokenType.KEYWORD_MASUKAN:
-            # masukan sebagai pernyataan mandiri
             expr = self._parse_input()
             self._match(TokenType.NEWLINE)
             return expr
         elif tok.type == TokenType.INDENT:
-            raise CoreParserError("Indentasi tidak terduga (spasi menjorok di luar blok pernyataan)", tok.line, tok.column)
+            raise CoreParserError(
+                "Indentasi tidak terduga (spasi menjorok di luar blok pernyataan).",
+                tok.line,
+                tok.column,
+                source_code=self.source_code,
+                cause="Terdapat spasi menjorok ke dalam padahal baris sebelumnya bukan pernyataan pembuka blok (seperti 'jika', 'fungsi', 'untuk', atau 'selama').",
+                solution="Hapus spasi di awal baris ini agar sejajar dengan baris lainnya."
+            )
         elif tok.type == TokenType.DEDENT:
-            raise CoreParserError("Penutupan indentasi (dedent) tidak sesuai dengan blok manapun", tok.line, tok.column)
+            raise CoreParserError(
+                "Penutupan indentasi tidak sesuai dengan blok manapun.",
+                tok.line,
+                tok.column,
+                source_code=self.source_code,
+                cause="Tingkat spasi menjorok tidak cocok dengan tingkatan blok sebelumnya.",
+                solution="Gunakan jumlah spasi yang konsisten (4 spasi per level indentasi)."
+            )
         elif tok.type == TokenType.IDENTIFIER:
-            # Bisa berupa penugasan (nama = ...) atau pemanggilan fungsi (nama arg1 arg2)
+            # Periksa apakah nama identifier ini adalah typo dari kata kunci
+            typo_kw = suggest_keyword(tok.value, list(KEYWORDS.keys()))
+            
+            # Jika berupa penugasan (nama = ...)
             if self.pos + 1 < len(self.tokens) and self.tokens[self.pos + 1].type == TokenType.ASSIGN:
                 return self._parse_assign()
+            elif typo_kw and typo_kw != tok.value:
+                # Menemukan kemungkinan typo kata kunci (misal: cetakk "halo")
+                raise CoreParserError(
+                    f"Pernyataan tidak dikenali '{tok.value}'.",
+                    tok.line,
+                    tok.column,
+                    source_code=self.source_code,
+                    cause=f"Kata '{tok.value}' bukan merupakan kata kunci resmi atau fungsi yang sah.",
+                    solution=f"Perbaiki ejaan kata tersebut menjadi '{typo_kw}'.",
+                    suggestion=typo_kw
+                )
             else:
                 return self._parse_implicit_call_stmt()
         else:
-            raise CoreParserError(f"Pernyataan tidak valid atau tidak dikenali '{tok.value}'", tok.line, tok.column)
+            raise CoreParserError(
+                f"Pernyataan tidak valid atau tidak dikenali '{tok.value}'",
+                tok.line,
+                tok.column,
+                source_code=self.source_code,
+                cause="Struktur pernyataan ini tidak dikenali oleh interpreter Core.",
+                solution="Periksa kembali sintaksis bahasa Core (lihat panduan di README.md)."
+            )
 
     def _parse_var_decl(self) -> VarDecl:
         kw = self._consume(TokenType.KEYWORD_VARIABEL, "Diharapkan kata kunci 'variabel'")
         ident = self._consume(TokenType.IDENTIFIER, "Diharapkan nama variabel setelah kata kunci 'variabel'")
-        self._consume(TokenType.ASSIGN, f"Diharapkan tanda '=' setelah nama variabel '{ident.value}'")
+        self._consume(
+            TokenType.ASSIGN,
+            f"Diharapkan tanda '=' setelah nama variabel '{ident.value}'",
+            cause=f"Variabel '{ident.value}' harus diberikan nilai awal.",
+            solution=f"Gunakan tanda '=' lalu ketik nilainya, contoh: 'variabel {ident.value} = 0'."
+        )
         
         value_expr = self._parse_expression()
         self._match(TokenType.NEWLINE)
@@ -146,7 +213,6 @@ class Parser:
         kw = self._consume(TokenType.KEYWORD_CETAK, "Diharapkan kata kunci 'cetak'")
         exprs: List[ASTNode] = []
 
-        # Parse setidaknya satu ekspresi jika bukan baris kosong
         if not self._check(TokenType.NEWLINE) and not self._is_at_end():
             exprs.append(self._parse_expression())
 
@@ -161,7 +227,12 @@ class Parser:
     def _parse_if(self) -> IfStmt:
         kw = self._consume(TokenType.KEYWORD_JIKA, "Diharapkan kata kunci 'jika'")
         condition = self._parse_expression()
-        self._consume(TokenType.NEWLINE, "Diharapkan baris baru setelah kondisi 'jika'")
+        self._consume(
+            TokenType.NEWLINE,
+            "Diharapkan baris baru setelah kondisi 'jika'",
+            cause="Setelah menulis syarat 'jika', baris kode harus berpindah ke baris baru.",
+            solution="Tekan tombol Enter setelah kondisi 'jika' lalu mulai blok isi dengan 4 spasi."
+        )
         then_branch = self._parse_block()
 
         elif_branches: List[Tuple[ASTNode, Block]] = []
@@ -179,6 +250,29 @@ class Parser:
         if self._match(TokenType.KEYWORD_SELAINITU):
             self._consume(TokenType.NEWLINE, "Diharapkan baris baru setelah 'selainitu'")
             else_branch = self._parse_block()
+
+        # Deteksi kesalahan jika ada selainitu / lainjika ganda yang salah susunan
+        self._skip_newlines()
+        if self._check(TokenType.KEYWORD_SELAINITU):
+            curr = self._peek()
+            raise CoreParserError(
+                "Ditemukan 'selainitu' ganda dalam satu percabangan.",
+                curr.line,
+                curr.column,
+                source_code=self.source_code,
+                cause="Dalam satu struktur 'jika', hanya diperbolehkan 1 'selainitu' di bagian paling akhir.",
+                solution="Ubah 'selainitu' sebelumnya menjadi 'lainjika <kondisi>' jika Anda ingin menambah syarat pengecekan baru."
+            )
+        elif self._check(TokenType.KEYWORD_LAINJIKA):
+            curr = self._peek()
+            raise CoreParserError(
+                "'lainjika' tidak boleh diletakkan setelah 'selainitu'.",
+                curr.line,
+                curr.column,
+                source_code=self.source_code,
+                cause="'selainitu' adalah penutup akhir. Semua kondisi 'lainjika' harus berada sebelum 'selainitu'.",
+                solution="Pindahkan blok 'lainjika' ini ke atas sebelum blok 'selainitu'."
+            )
 
         return IfStmt(
             condition=condition,

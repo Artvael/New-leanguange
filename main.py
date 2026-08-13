@@ -29,21 +29,15 @@ def run_code(source_code: str, interpreter: Interpreter = None) -> bool:
         tokens = lexer.tokenize()
 
         # 2. Analisis Sintaksis (Parsing ke AST)
-        parser = Parser(tokens)
+        parser = Parser(tokens, source_code=source_code)
         ast = parser.parse()
 
         # 3. Eksekusi Program (Interpreter)
-        interpreter.run(ast)
+        interpreter.run(ast, source_code=source_code)
         return True
 
-    except CoreLexerError as err:
-        print(f"\n❌ {err}")
-        return False
-    except CoreParserError as err:
-        print(f"\n❌ {err}")
-        return False
-    except CoreRuntimeError as err:
-        print(f"\n❌ {err}")
+    except (CoreLexerError, CoreParserError, CoreRuntimeError) as err:
+        print(err)
         return False
     except Exception as err:
         print(f"\n❌ [Kesalahan Sistem]: {err}")
